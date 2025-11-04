@@ -1,0 +1,72 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f7fa;
+  margin: 0;
+  padding: 20px;
+}
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+h1, h2, h3, h4 {
+  color: #2c3e50;
+}
+label {
+  display: block;
+  margin: 15px 0 5px;
+  font-weight: bold;
+}
+select, textarea, button {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+button {
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+button:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}
+.criterio {
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+.botones-nivel {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.btn-nivel {
+  padding: 8px 12px;
+  border: 1px solid #95a5a6;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-nivel.activo {
+  background: #2ecc71;
+  color: white;
+  border-color: #27ae60;
+}
+#panel-puntaje {
+  background: #ecf0f1;
+  padding: 15px;
+  border-radius: 6px;
+  text-align: center;
+  margin: 20px 0;
+}
+#panel-puntaje h3 {
+  margin: 0;
+  color: #2c3e50;
+}
