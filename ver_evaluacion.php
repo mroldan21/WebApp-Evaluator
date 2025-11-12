@@ -75,15 +75,17 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
         }
         .puntaje-badge {
             display: inline-block;
-            padding: 5px 10px;
-            border-radius: 3px;
+            padding: 8px 15px;
+            border-radius: 5px;
             font-weight: bold;
             color: white;
+            font-size: 1.1em;
         }
         .puntaje-1 { background: #dc3545; }
         .puntaje-2 { background: #ffc107; color: #000; }
         .puntaje-3 { background: #28a745; }
         .puntaje-4 { background: #007bff; }
+        .puntaje-5 { background: #6f42c1; }
         .resumen-box {
             background: #d4edda;
             padding: 20px;
@@ -97,6 +99,16 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
             border-radius: 8px;
             margin: 20px 0;
         }
+        .estado-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .estado-enviada { background: #28a745; color: white; }
+        .estado-borrador { background: #6c757d; color: white; }
+        .estado-revisada { background: #007bff; color: white; }
     </style>
 </head>
 <body>
@@ -113,7 +125,12 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
             <p><strong>Equipo:</strong> <?= htmlspecialchars($evaluacion['equipo_nombre']) ?></p>
             <p><strong>Evaluador:</strong> <?= htmlspecialchars($evaluacion['evaluador_nombre']) ?></p>
             <p><strong>Fecha:</strong> <?= date('d/m/Y H:i', strtotime($evaluacion['fecha_eval'])) ?></p>
-            <p><strong>Estado:</strong> <?= strtoupper($evaluacion['estado']) ?></p>
+            <p>
+                <strong>Estado:</strong> 
+                <span class="estado-badge estado-<?= strtolower($evaluacion['estado']) ?>">
+                    <?= strtoupper($evaluacion['estado']) ?>
+                </span>
+            </p>
         </div>
 
         <div class="resumen-box">
@@ -136,12 +153,21 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
                     
                     <p>
                         <strong>Puntaje asignado:</strong> 
-                        <span class="puntaje-badge puntaje-<?= $det['puntaje'] ?>">
+                        <?php
+                            // Determinar clase según el puntaje normalizado
+                            $porcentaje = (($det['puntaje'] - $det['puntaje_minimo']) / ($det['puntaje_maximo'] - $det['puntaje_minimo'])) * 100;
+                            $clase = 'puntaje-1';
+                            if ($porcentaje >= 90) $clase = 'puntaje-5';
+                            elseif ($porcentaje >= 75) $clase = 'puntaje-4';
+                            elseif ($porcentaje >= 60) $clase = 'puntaje-3';
+                            elseif ($porcentaje >= 40) $clase = 'puntaje-2';
+                        ?>
+                        <span class="puntaje-badge <?= $clase ?>">
                             <?= $det['puntaje'] ?> / <?= $det['puntaje_maximo'] ?>
                         </span>
                     </p>
                     
-                    <?php if ($det['comentario']): ?>
+                    <?php if (!empty($det['comentario'])): ?>
                         <p><strong>Comentario:</strong> <?= nl2br(htmlspecialchars($det['comentario'])) ?></p>
                     <?php endif; ?>
                     
@@ -152,7 +178,7 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
             <?php endforeach; ?>
         <?php endif; ?>
 
-        <?php if ($evaluacion['observaciones']): ?>
+        <?php if (!empty($evaluacion['observaciones'])): ?>
             <div class="observaciones-box">
                 <h3>📝 Observaciones Generales</h3>
                 <p><?= nl2br(htmlspecialchars($evaluacion['observaciones'])) ?></p>

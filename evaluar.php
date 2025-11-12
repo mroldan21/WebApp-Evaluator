@@ -59,6 +59,63 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
     <meta charset="UTF-8">
     <title>Evaluación - <?= htmlspecialchars($instancia['nombre']) ?></title>
     <link rel="stylesheet" href="estilo.css">
+    <style>
+        .estrellas-container {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+            font-size: 2em;
+        }
+        
+        .estrella {
+            cursor: pointer;
+            color: #ddd;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .estrella:hover,
+        .estrella.hover {
+            color: #ffc107;
+            transform: scale(1.2);
+        }
+        
+        .estrella.seleccionada {
+            color: #ffc107;
+        }
+        
+        .criterio {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .puntaje-seleccionado {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+        
+        .info-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .total-container {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            border: 2px solid #ffc107;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -89,11 +146,16 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
                         <p class="descripcion"><?= htmlspecialchars($criterio['descripcion']) ?></p>
                     <?php endif; ?>
                     
-                    <div class="botones-nivel" 
+                    <div class="estrellas-container" 
                          data-criterio-id="<?= $criterio['id_criterio'] ?>"
                          data-min="<?= $criterio['puntaje_minimo'] ?>"
                          data-max="<?= $criterio['puntaje_maximo'] ?>"
                          data-peso="<?= $criterio['peso_porcentual'] ?>">
+                        <!-- Las estrellas se generan dinámicamente con JavaScript -->
+                    </div>
+                    
+                    <div class="puntaje-seleccionado" id="puntaje-texto-<?= $criterio['id_criterio'] ?>">
+                        Selecciona una calificación
                     </div>
                     
                     <input type="hidden" 
@@ -128,12 +190,13 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
     </div>
 
     <script>
-        // Niveles descriptivos (puedes personalizarlos)
-        const nivelesDescriptivos = {
+        // Descripciones por nivel
+        const descripciones = {
             1: 'Insuficiente',
-            2: 'Suficiente',
-            3: 'Bueno',
-            4: 'Excelente'
+            2: 'Regular',
+            3: 'Aceptable',
+            4: 'Bueno',
+            5: 'Excelente'
         };
 
         let criteriosEvaluados = 0;
@@ -143,8 +206,8 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
         // Estructura para almacenar los puntajes de cada criterio
         const criteriosData = {};
 
-        // Generar botones dinámicamente para cada criterio
-        document.querySelectorAll('.botones-nivel').forEach(container => {
+        // Generar estrellas para cada criterio
+        document.querySelectorAll('.estrellas-container').forEach(container => {
             const criterioId = container.dataset.criterioId;
             const min = parseInt(container.dataset.min);
             const max = parseInt(container.dataset.max);
@@ -158,78 +221,114 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
                 peso: peso
             };
 
-            for (let i = min; i <= max; i++) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn-nivel';
-                btn.dataset.value = i;
-                btn.textContent = `${i}${nivelesDescriptivos[i] ? ' (' + nivelesDescriptivos[i] + ')' : ''}`;
+            // Crear 5 estrellas siempre (mapearemos al rango real del criterio)
+            for (let i = 1; i <= 5; i++) {
+                const estrella = document.createElement('span');
+                estrella.className = 'estrella';
+                estrella.innerHTML = '★';
+                estrella.dataset.valor = i;
                 
-                btn.addEventListener('click', () => {
-                    // Remover activo de todos los botones del mismo criterio
-                    container.querySelectorAll('.btn-nivel').forEach(b => b.classList.remove('activo'));
-                    btn.classList.add('activo');
+                // Efecto hover: iluminar hasta la estrella actual
+                estrella.addEventListener('mouseenter', () => {
+                    const estrellas = container.querySelectorAll('.estrella');
+                    estrellas.forEach((e, idx) => {
+                        if (idx < i) {
+                            e.classList.add('hover');
+                        } else {
+                            e.classList.remove('hover');
+                        }
+                    });
+                });
+                
+                // Quitar hover
+                estrella.addEventListener('mouseleave', () => {
+                    container.querySelectorAll('.estrella').forEach(e => {
+                        e.classList.remove('hover');
+                    });
+                });
+                
+                // Click: seleccionar calificación
+                estrella.addEventListener('click', () => {
+                    const valorEstrella = parseInt(estrella.dataset.valor);
                     
-                    // Actualizar valor hidden
+                    // Mapear de escala 1-5 a la escala real del criterio (min-max)
+                    const valorReal = Math.round(min + ((valorEstrella - 1) / 4) * (max - min));
+                    
+                    // Actualizar estrellas visuales
+                    const estrellas = container.querySelectorAll('.estrella');
+                    estrellas.forEach((e, idx) => {
+                        if (idx < valorEstrella) {
+                            e.classList.add('seleccionada');
+                        } else {
+                            e.classList.remove('seleccionada');
+                        }
+                    });
+                    
+                    // Actualizar input hidden
                     const inputPuntaje = document.querySelector(`input[name="criterio[${criterioId}][puntaje]"]`);
                     const valorAnterior = parseInt(inputPuntaje.value);
-                    inputPuntaje.value = i;
+                    inputPuntaje.value = valorReal;
+                    
+                    // Actualizar texto descriptivo
+                    const descripcion = descripciones[valorEstrella] || '';
+                    document.getElementById(`puntaje-texto-${criterioId}`).textContent = 
+                        `${valorReal} puntos - ${descripcion}`;
                     
                     // Actualizar datos del criterio
-                    criteriosData[criterioId].puntaje = i;
+                    criteriosData[criterioId].puntaje = valorReal;
                     
-                    // Actualizar contador si es la primera vez que se evalúa este criterio
-                    if (valorAnterior === 0 && i > 0) {
+                    // Actualizar contador si es la primera vez
+                    if (valorAnterior === 0 && valorReal > 0) {
                         criteriosEvaluados++;
-                    } else if (valorAnterior > 0 && i === 0) {
-                        criteriosEvaluados--;
                     }
                     
                     actualizarTotales();
                 });
                 
-                container.appendChild(btn);
+                container.appendChild(estrella);
             }
         });
 
         function actualizarTotales() {
-            // Actualizar contador de criterios evaluados
+            // Actualizar contador
             document.getElementById('total-evaluados').textContent = criteriosEvaluados;
             
-            // Calcular puntaje ponderado y promedio simple
+            // Calcular puntajes
             let puntajePonderado = 0;
-            let sumaPuntajes = 0;
+            let sumaPorcentajes = 0;
             let cantidadEvaluados = 0;
 
             for (let criterioId in criteriosData) {
                 const criterio = criteriosData[criterioId];
                 if (criterio.puntaje > 0) {
-                    // Normalizar el puntaje del criterio a escala 0-100
-                    const puntajeNormalizado = ((criterio.puntaje - criterio.min) / (criterio.max - criterio.min)) * 100;
+                    // Normalizar a porcentaje
+                    const porcentaje = ((criterio.puntaje - criterio.min) / (criterio.max - criterio.min)) * 100;
                     
-                    // Aplicar el peso del criterio
-                    const puntajePonderadoCriterio = (puntajeNormalizado * criterio.peso) / 100;
+                    // Aplicar peso
+                    const puntajePonderadoCriterio = (porcentaje * criterio.peso) / 100;
                     puntajePonderado += puntajePonderadoCriterio;
                     
-                    // Para el promedio simple
-                    sumaPuntajes += criterio.puntaje;
+                    // Acumular para promedio simple
+                    sumaPorcentajes += porcentaje;
                     cantidadEvaluados++;
                 }
             }
 
-            // Normalizar el puntaje ponderado según el peso total
+            // Normalizar puntaje ponderado
             if (pesoTotal > 0) {
                 puntajePonderado = (puntajePonderado * 100) / pesoTotal;
             }
 
-            // Calcular promedio simple
-            const promedioSimple = cantidadEvaluados > 0 ? sumaPuntajes / cantidadEvaluados : 0;
+            // Calcular promedio simple (en escala del máximo común)
+            const promedioSimplePorcentaje = cantidadEvaluados > 0 ? sumaPorcentajes / cantidadEvaluados : 0;
+            const maxComun = <?= $criterios[0]['puntaje_maximo'] ?? 4 ?>;
+            const promedioSimple = (promedioSimplePorcentaje / 100) * maxComun;
 
-            // Actualizar la interfaz
+            // Actualizar interfaz
             document.getElementById('puntaje-ponderado').textContent = puntajePonderado.toFixed(2);
             document.getElementById('promedio-simple').textContent = promedioSimple.toFixed(2);
 
-            // Habilitar/deshabilitar botón de guardar
+            // Habilitar/deshabilitar botón
             document.getElementById('guardar').disabled = (criteriosEvaluados < totalCriterios);
         }
     </script>
