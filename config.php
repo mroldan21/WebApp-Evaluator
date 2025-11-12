@@ -1,7 +1,7 @@
 <?php
 $host = 'localhost';
-$dbname = 'prog2_tfpython';
-$user = 'usuario_unlar';
+$dbname = 'prog2_evaluator';
+$user = 'uevaluator';
 $pass = 'Cachifor123Ñ';
 
 try {
