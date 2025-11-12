@@ -139,9 +139,6 @@ $peso_total = array_sum(array_column($criterios, 'puntaje_maximo_criterio'));
                 <div class="criterio">
                     <h4>
                         <?= ($index + 1) ?>. <?= htmlspecialchars($criterio['nombre']) ?>
-                        <span style="color: #666; font-size: 0.9em;">
-                            (Peso: <?= $criterio['puntaje_maximo_criterio'] ?>%)
-                        </span>
                     </h4>
                     <?php if ($criterio['descripcion']): ?>
                         <p class="descripcion"><?= htmlspecialchars($criterio['descripcion']) ?></p>
