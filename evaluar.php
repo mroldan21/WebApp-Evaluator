@@ -190,147 +190,145 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
     </div>
 
     <script>
-        // Descripciones por nivel
-        const descripciones = {
-            1: 'Insuficiente',
-            2: 'Regular',
-            3: 'Aceptable',
-            4: 'Bueno',
-            5: 'Excelente'
-        };
+      const descripciones = {
+          0: 'Sin calificación',
+          1: 'Muy deficiente',
+          2: 'Insuficiente',
+          3: 'Aceptable',
+          4: 'Bueno',
+          5: 'Excelente'
+      };
 
-        let criteriosEvaluados = 0;
-        const totalCriterios = <?= count($criterios) ?>;
-        const pesoTotal = <?= $peso_total ?>;
+      let criteriosEvaluados = 0;
+      const totalCriterios = <?= count($criterios) ?>;
+      const pesoTotal = <?= $peso_total ?>;
+      const criteriosData = {};
 
-        // Estructura para almacenar los puntajes de cada criterio
-        const criteriosData = {};
+      // Generar estrellas para cada criterio
+      document.querySelectorAll('.estrellas-container').forEach(container => {
+          const criterioId = container.dataset.criterioId;
+          const min = parseInt(container.dataset.min);
+          const max = parseInt(container.dataset.max);
+          const peso = parseFloat(container.dataset.peso);
 
-        // Generar estrellas para cada criterio
-        document.querySelectorAll('.estrellas-container').forEach(container => {
-            const criterioId = container.dataset.criterioId;
-            const min = parseInt(container.dataset.min);
-            const max = parseInt(container.dataset.max);
-            const peso = parseFloat(container.dataset.peso);
+          criteriosData[criterioId] = {
+              puntaje: 0,
+              min: min,
+              max: max,
+              peso: peso
+          };
 
-            // Inicializar datos del criterio
-            criteriosData[criterioId] = {
-                puntaje: 0,
-                min: min,
-                max: max,
-                peso: peso
-            };
+          // Crear 5 estrellas
+          for (let i = 1; i <= 5; i++) {
+              const estrella = document.createElement('span');
+              estrella.className = 'estrella';
+              estrella.innerHTML = '★';
+              estrella.dataset.valor = i;
+              
+              // Efecto hover
+              estrella.addEventListener('mouseenter', () => {
+                  const estrellas = container.querySelectorAll('.estrella');
+                  estrellas.forEach((e, idx) => {
+                      if (idx < i) {
+                          e.classList.add('hover');
+                      } else {
+                          e.classList.remove('hover');
+                      }
+                  });
+              });
+              
+              estrella.addEventListener('mouseleave', () => {
+                  container.querySelectorAll('.estrella').forEach(e => {
+                      e.classList.remove('hover');
+                  });
+              });
+              
+              // Click: seleccionar o desmarcar
+              estrella.addEventListener('click', () => {
+                  const valorEstrella = parseInt(estrella.dataset.valor);
+                  const inputPuntaje = document.querySelector(`input[name="criterio[${criterioId}][puntaje]"]`);
+                  const valorAnterior = parseInt(inputPuntaje.value);
+                  
+                  // Mapear de 1-5 a min-max del criterio
+                  const valorReal = Math.round(min + ((valorEstrella - 1) / 4) * (max - min));
+                  
+                  // Si se clickea la misma estrella, desmarcar (poner en 0)
+                  const estaSeleccionada = criteriosData[criterioId].puntaje > 0 && 
+                      Math.round(min + ((valorEstrella - 1) / 4) * (max - min)) === criteriosData[criterioId].puntaje;
+                  
+                  if (estaSeleccionada) {
+                      // Desmarcar todas
+                      container.querySelectorAll('.estrella').forEach(e => {
+                          e.classList.remove('seleccionada');
+                      });
+                      inputPuntaje.value = 0;
+                      criteriosData[criterioId].puntaje = 0;
+                      document.getElementById(`puntaje-texto-${criterioId}`).textContent = 'Sin calificación';
+                      
+                      if (valorAnterior > 0) {
+                          criteriosEvaluados--;
+                      }
+                  } else {
+                      // Seleccionar estrellas
+                      const estrellas = container.querySelectorAll('.estrella');
+                      estrellas.forEach((e, idx) => {
+                          if (idx < valorEstrella) {
+                              e.classList.add('seleccionada');
+                          } else {
+                              e.classList.remove('seleccionada');
+                          }
+                      });
+                      
+                      inputPuntaje.value = valorReal;
+                      criteriosData[criterioId].puntaje = valorReal;
+                      
+                      const descripcion = descripciones[valorEstrella] || '';
+                      document.getElementById(`puntaje-texto-${criterioId}`).textContent = 
+                          `${valorReal} puntos - ${descripcion}`;
+                      
+                      if (valorAnterior === 0) {
+                          criteriosEvaluados++;
+                      }
+                  }
+                  
+                  actualizarTotales();
+              });
+              
+              container.appendChild(estrella);
+          }
+      });
 
-            // Crear 5 estrellas siempre (mapearemos al rango real del criterio)
-            for (let i = 1; i <= 5; i++) {
-                const estrella = document.createElement('span');
-                estrella.className = 'estrella';
-                estrella.innerHTML = '★';
-                estrella.dataset.valor = i;
-                
-                // Efecto hover: iluminar hasta la estrella actual
-                estrella.addEventListener('mouseenter', () => {
-                    const estrellas = container.querySelectorAll('.estrella');
-                    estrellas.forEach((e, idx) => {
-                        if (idx < i) {
-                            e.classList.add('hover');
-                        } else {
-                            e.classList.remove('hover');
-                        }
-                    });
-                });
-                
-                // Quitar hover
-                estrella.addEventListener('mouseleave', () => {
-                    container.querySelectorAll('.estrella').forEach(e => {
-                        e.classList.remove('hover');
-                    });
-                });
-                
-                // Click: seleccionar calificación
-                estrella.addEventListener('click', () => {
-                    const valorEstrella = parseInt(estrella.dataset.valor);
-                    
-                    // Mapear de escala 1-5 a la escala real del criterio (min-max)
-                    const valorReal = Math.round(min + ((valorEstrella - 1) / 4) * (max - min));
-                    
-                    // Actualizar estrellas visuales
-                    const estrellas = container.querySelectorAll('.estrella');
-                    estrellas.forEach((e, idx) => {
-                        if (idx < valorEstrella) {
-                            e.classList.add('seleccionada');
-                        } else {
-                            e.classList.remove('seleccionada');
-                        }
-                    });
-                    
-                    // Actualizar input hidden
-                    const inputPuntaje = document.querySelector(`input[name="criterio[${criterioId}][puntaje]"]`);
-                    const valorAnterior = parseInt(inputPuntaje.value);
-                    inputPuntaje.value = valorReal;
-                    
-                    // Actualizar texto descriptivo
-                    const descripcion = descripciones[valorEstrella] || '';
-                    document.getElementById(`puntaje-texto-${criterioId}`).textContent = 
-                        `${valorReal} puntos - ${descripcion}`;
-                    
-                    // Actualizar datos del criterio
-                    criteriosData[criterioId].puntaje = valorReal;
-                    
-                    // Actualizar contador si es la primera vez
-                    if (valorAnterior === 0 && valorReal > 0) {
-                        criteriosEvaluados++;
-                    }
-                    
-                    actualizarTotales();
-                });
-                
-                container.appendChild(estrella);
-            }
-        });
+      function actualizarTotales() {
+          document.getElementById('total-evaluados').textContent = criteriosEvaluados;
+          
+          let puntajePonderado = 0;
+          let sumaPorcentajes = 0;
+          let cantidadEvaluados = 0;
 
-        function actualizarTotales() {
-            // Actualizar contador
-            document.getElementById('total-evaluados').textContent = criteriosEvaluados;
-            
-            // Calcular puntajes
-            let puntajePonderado = 0;
-            let sumaPorcentajes = 0;
-            let cantidadEvaluados = 0;
+          for (let criterioId in criteriosData) {
+              const criterio = criteriosData[criterioId];
+              if (criterio.puntaje > 0) {
+                  const porcentaje = ((criterio.puntaje - criterio.min) / (criterio.max - criterio.min)) * 100;
+                  const puntajePonderadoCriterio = (porcentaje * criterio.peso) / 100;
+                  puntajePonderado += puntajePonderadoCriterio;
+                  sumaPorcentajes += porcentaje;
+                  cantidadEvaluados++;
+              }
+          }
 
-            for (let criterioId in criteriosData) {
-                const criterio = criteriosData[criterioId];
-                if (criterio.puntaje > 0) {
-                    // Normalizar a porcentaje
-                    const porcentaje = ((criterio.puntaje - criterio.min) / (criterio.max - criterio.min)) * 100;
-                    
-                    // Aplicar peso
-                    const puntajePonderadoCriterio = (porcentaje * criterio.peso) / 100;
-                    puntajePonderado += puntajePonderadoCriterio;
-                    
-                    // Acumular para promedio simple
-                    sumaPorcentajes += porcentaje;
-                    cantidadEvaluados++;
-                }
-            }
+          if (pesoTotal > 0) {
+              puntajePonderado = (puntajePonderado * 100) / pesoTotal;
+          }
 
-            // Normalizar puntaje ponderado
-            if (pesoTotal > 0) {
-                puntajePonderado = (puntajePonderado * 100) / pesoTotal;
-            }
+          const promedioSimplePorcentaje = cantidadEvaluados > 0 ? sumaPorcentajes / cantidadEvaluados : 0;
+          const maxComun = <?= $criterios[0]['puntaje_maximo'] ?? 5 ?>;
+          const promedioSimple = (promedioSimplePorcentaje / 100) * maxComun;
 
-            // Calcular promedio simple (en escala del máximo común)
-            const promedioSimplePorcentaje = cantidadEvaluados > 0 ? sumaPorcentajes / cantidadEvaluados : 0;
-            const maxComun = <?= $criterios[0]['puntaje_maximo'] ?? 4 ?>;
-            const promedioSimple = (promedioSimplePorcentaje / 100) * maxComun;
+          document.getElementById('puntaje-ponderado').textContent = puntajePonderado.toFixed(2);
+          document.getElementById('promedio-simple').textContent = promedioSimple.toFixed(2);
+          document.getElementById('guardar').disabled = (criteriosEvaluados < totalCriterios);
+      }
+  </script>
 
-            // Actualizar interfaz
-            document.getElementById('puntaje-ponderado').textContent = puntajePonderado.toFixed(2);
-            document.getElementById('promedio-simple').textContent = promedioSimple.toFixed(2);
-
-            // Habilitar/deshabilitar botón
-            document.getElementById('guardar').disabled = (criteriosEvaluados < totalCriterios);
-        }
-    </script>
 </body>
 </html>

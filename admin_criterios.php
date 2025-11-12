@@ -1,10 +1,10 @@
 <?php
 require 'config.php';
 
-// Procesar acciones (crear, editar, desactivar)
 $mensaje = '';
 $error = '';
 
+// Procesar acciones (crear, editar, desactivar)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = $_POST['accion'] ?? '';
     
@@ -12,12 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($accion === 'crear') {
             $stmt = $pdo->prepare("
                 INSERT INTO criterios_evaluacion (nombre, descripcion, puntaje_minimo, puntaje_maximo)
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, 0, ?)
             ");
             $stmt->execute([
                 $_POST['nombre'],
                 $_POST['descripcion'],
-                (int)$_POST['puntaje_minimo'],
                 (int)$_POST['puntaje_maximo']
             ]);
             $mensaje = "✅ Criterio creado exitosamente.";
@@ -25,13 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($accion === 'editar') {
             $stmt = $pdo->prepare("
                 UPDATE criterios_evaluacion 
-                SET nombre = ?, descripcion = ?, puntaje_minimo = ?, puntaje_maximo = ?
+                SET nombre = ?, descripcion = ?, puntaje_maximo = ?
                 WHERE id_criterio = ?
             ");
             $stmt->execute([
                 $_POST['nombre'],
                 $_POST['descripcion'],
-                (int)$_POST['puntaje_minimo'],
                 (int)$_POST['puntaje_maximo'],
                 (int)$_POST['id_criterio']
             ]);
@@ -135,23 +133,25 @@ if (isset($_GET['editar'])) {
 
                 <label>Nombre del criterio: *</label>
                 <input type="text" name="nombre" required 
-                       value="<?= $criterio_editar ? htmlspecialchars($criterio_editar['nombre']) : '' ?>">
+                       value="<?= $criterio_editar ? htmlspecialchars($criterio_editar['nombre']) : '' ?>"
+                       placeholder="Ej: Calidad de la presentación">
 
                 <label>Descripción:</label>
-                <textarea name="descripcion" rows="3"><?= $criterio_editar ? htmlspecialchars($criterio_editar['descripcion']) : '' ?></textarea>
+                <textarea name="descripcion" rows="3" 
+                          placeholder="Descripción opcional del criterio"><?= $criterio_editar ? htmlspecialchars($criterio_editar['descripcion']) : '' ?></textarea>
 
-                <div style="display: flex; gap: 20px;">
-                    <div style="flex: 1;">
-                        <label>Puntaje mínimo: *</label>
-                        <input type="number" name="puntaje_minimo" required min="1" max="10"
-                               value="<?= $criterio_editar ? $criterio_editar['puntaje_minimo'] : '1' ?>">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Puntaje máximo: *</label>
-                        <input type="number" name="puntaje_maximo" required min="1" max="10"
-                               value="<?= $criterio_editar ? $criterio_editar['puntaje_maximo'] : '4' ?>">
-                    </div>
-                </div>
+                <label>Puntaje máximo del criterio: *</label>
+                <input type="number" name="puntaje_maximo" required min="1" max="100"
+                       value="<?= $criterio_editar ? $criterio_editar['puntaje_maximo'] : '5' ?>"
+                       placeholder="Ej: 5, 10, 20, 100">
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    Define la escala máxima de este criterio. Ejemplos: 5 (estrellas), 10 (nota sobre 10), 100 (porcentaje).
+                </small>
+
+                <p style="color: #666; font-size: 0.9em; margin-top: 15px; background: #fff3cd; padding: 10px; border-radius: 5px;">
+                    ℹ️ <strong>Sistema de evaluación:</strong> Los criterios se evalúan con 5 estrellas que se mapean automáticamente 
+                    al rango 0 - [puntaje máximo]. El evaluador puede dejar en 0 (sin estrellas) cualquier criterio.
+                </p>
 
                 <button type="submit"><?= $criterio_editar ? 'Actualizar Criterio' : 'Crear Criterio' ?></button>
                 <?php if ($criterio_editar): ?>
@@ -175,7 +175,7 @@ if (isset($_GET['editar'])) {
                     <?php endif; ?>
                     
                     <p>
-                        <strong>Rango:</strong> <?= $crit['puntaje_minimo'] ?> - <?= $crit['puntaje_maximo'] ?> puntos |
+                        <strong>Escala:</strong> 0 - <?= $crit['puntaje_maximo'] ?> puntos |
                         <strong>Estado:</strong> <?= $crit['activo'] ? '✅ Activo' : '⛔ Inactivo' ?> |
                         <strong>Creado:</strong> <?= date('d/m/Y', strtotime($crit['fecha_creacion'])) ?>
                     </p>

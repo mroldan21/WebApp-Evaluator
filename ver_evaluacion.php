@@ -184,6 +184,172 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
                 <p><?= nl2br(htmlspecialchars($evaluacion['observaciones'])) ?></p>
             </div>
         <?php endif; ?>
+
+            <!-- Botón para generar prompt de IA -->
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
+                <h3>🤖 Generar Devolución con IA</h3>
+                <p style="color: #666; margin: 10px 0;">
+                    Genera un prompt optimizado para obtener una devolución constructiva y personalizada de esta evaluación.
+                </p>
+                <button onclick="generarPrompt()" style="background: #2196f3; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">
+                    📝 Generar Prompt para IA
+                </button>
+                <button onclick="copiarPrompt()" id="btn-copiar" style="background: #4caf50; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; margin-left: 10px; display: none;">
+                    📋 Copiar Prompt
+                </button>
+                <button onclick="enviarAIA()" id="btn-enviar-ia" style="background: #ff9800; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; margin-left: 10px; display: none;">
+                    🤖 Enviar a IA
+                </button>
+
+            </div>
+
+            <!-- Área donde se mostrará el prompt generado -->
+            <div id="prompt-container" style="display: none; background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3>Prompt Generado:</h3>
+                <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; max-height: 400px; overflow-y: auto;">
+                    <pre id="prompt-text" style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 0;"></pre>
+                </div>
+            </div>
+
+            <script>
+                const evaluacionData = {
+                    id: <?= $id_evaluacion ?>,
+                    instancia: <?= json_encode($evaluacion['instancia_nombre']) ?>,
+                    equipo: <?= json_encode($evaluacion['equipo_nombre']) ?>,
+                    evaluador: <?= json_encode($evaluacion['evaluador_nombre']) ?>,
+                    fecha: <?= json_encode(date('d/m/Y H:i', strtotime($evaluacion['fecha_eval']))) ?>,
+                    promedio: <?= $promedio ?>,
+                    observaciones: <?= json_encode($evaluacion['observaciones'] ?? '') ?>,
+                    criterios: [
+                        <?php foreach ($detalles as $det): ?>
+                        {
+                            nombre: <?= json_encode($det['criterio_nombre']) ?>,
+                            descripcion: <?= json_encode($det['criterio_descripcion']) ?>,
+                            puntaje: <?= $det['puntaje'] ?>,
+                            maximo: <?= $det['puntaje_maximo'] ?>,
+                            porcentaje: <?= round((($det['puntaje'] - $det['puntaje_minimo']) / ($det['puntaje_maximo'] - $det['puntaje_minimo'])) * 100, 1) ?>,
+                            comentario: <?= json_encode($det['comentario'] ?? '') ?>
+                        },
+                        <?php endforeach; ?>
+                    ]
+                };
+
+                function generarPrompt() {
+                    let prompt = `Actúa como un evaluador académico experimentado y genera una devolución constructiva, detallada y motivadora para el siguiente proyecto evaluado.
+
+    ## CONTEXTO DE LA EVALUACIÓN
+
+    **Instancia:** ${evaluacionData.instancia}
+    **Equipo:** ${evaluacionData.equipo}
+    **Evaluador:** ${evaluacionData.evaluador}
+    **Fecha:** ${evaluacionData.fecha}
+    **Promedio General:** ${evaluacionData.promedio.toFixed(2)} / 4.0
+
+    ## CRITERIOS EVALUADOS
+
+    `;
+
+                    evaluacionData.criterios.forEach((criterio, index) => {
+                        const nivel = criterio.porcentaje >= 80 ? "Excelente" : 
+                                    criterio.porcentaje >= 60 ? "Bueno" : 
+                                    criterio.porcentaje >= 40 ? "Aceptable" : "Necesita mejora";
+                        
+                        prompt += `### ${index + 1}. ${criterio.nombre}
+    **Puntaje:** ${criterio.puntaje}/${criterio.maximo} (${criterio.porcentaje}% - ${nivel})
+    **Descripción:** ${criterio.descripcion || 'Sin descripción'}
+    ${criterio.comentario ? `**Comentario del evaluador:** ${criterio.comentario}` : ''}
+
+    `;
+                    });
+
+                    if (evaluacionData.observaciones) {
+                        prompt += `## OBSERVACIONES GENERALES DEL EVALUADOR
+
+    ${evaluacionData.observaciones}
+
+    `;
+                    }
+
+                    prompt += `## INSTRUCCIONES PARA LA DEVOLUCIÓN
+
+    Por favor, genera una devolución que incluya:
+
+    1. **Resumen ejecutivo**: Breve análisis del desempeño general del equipo
+    2. **Fortalezas identificadas**: Aspectos destacados según los criterios evaluados
+    3. **Áreas de mejora**: Puntos específicos que requieren atención, con sugerencias concretas
+    4. **Recomendaciones prácticas**: Pasos accionables para el equipo
+    5. **Mensaje motivacional**: Cierre positivo y alentador
+
+    **Tono:** Constructivo, profesional y motivador
+    **Extensión:** 400-600 palabras
+    **Formato:** Estructura clara con títulos y bullets points cuando sea apropiado`;
+
+                    document.getElementById('prompt-text').textContent = prompt;
+                    document.getElementById('prompt-container').style.display = 'block';
+                    document.getElementById('btn-copiar').style.display = 'inline-block';
+                    document.getElementById('btn-enviar-ia').style.display = 'inline-block';
+                    
+                    // Scroll suave hasta el prompt
+                    document.getElementById('prompt-container').scrollIntoView({ behavior: 'smooth' });
+                }
+
+                function copiarPrompt() {
+                    const promptText = document.getElementById('prompt-text').textContent;
+                    navigator.clipboard.writeText(promptText).then(() => {
+                        const btn = document.getElementById('btn-copiar');
+                        const textoOriginal = btn.textContent;
+                        btn.textContent = '✅ ¡Copiado!';
+                        btn.style.background = '#4caf50';
+                        setTimeout(() => {
+                            btn.textContent = textoOriginal;
+                            btn.style.background = '#2196f3';
+                        }, 2000);
+                    }).catch(err => {
+                        alert('Error al copiar: ' + err);
+                    });
+                }
+
+                function enviarAIA() {
+                    const prompt = document.getElementById('prompt-text').textContent;
+                    const btnEnviar = document.getElementById('btn-enviar-ia');
+                    const btnCopiar = document.getElementById('btn-copiar');
+                    
+                    btnEnviar.disabled = true;
+                    btnEnviar.textContent = '⏳ Consultando IA...';
+                    btnCopiar.disabled = true;
+                    
+                    fetch('api_ia.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id_evaluacion: evaluacionData.id,
+                            prompt: prompt,
+                            usuario_id: 1 // Hardcodeado por ahora
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Redirigir a la página de visualización
+                            window.location.href = `ver_devolucion.php?id=${data.id_devolucion}`;
+                        } else {
+                            alert('Error: ' + data.error);
+                            btnEnviar.disabled = false;
+                            btnEnviar.textContent = '🤖 Enviar a IA';
+                            btnCopiar.disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error de conexión: ' + error);
+                        btnEnviar.disabled = false;
+                        btnEnviar.textContent = '🤖 Enviar a IA';
+                        btnCopiar.disabled = false;
+                    });
+                }
+            </script>
+
     </div>
 </body>
 </html>
