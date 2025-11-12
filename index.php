@@ -27,8 +27,11 @@ $instancias = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="menu-admin">
             <a href="admin_criterios.php" class="btn-admin">📝 Gestionar Criterios</a>
             <a href="admin_instancias.php" class="btn-admin">📋 Gestionar Instancias</a>
+            <a href="admin_equipos.php" class="btn-admin">👥 Gestionar Equipos</a>
+            <a href="admin_evaluadores.php" class="btn-admin">👨‍🏫 Gestionar Evaluadores</a>
             <a href="reportes.php" class="btn-admin">📊 Ver Reportes</a>
         </div>
+
 
         <h2>Iniciar Nueva Evaluación</h2>
         
