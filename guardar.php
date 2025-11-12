@@ -7,35 +7,67 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    $stmt = $pdo->prepare("
-        INSERT INTO evaluaciones (
-            id_equipo, id_evaluador,
-            problema_valor, integracion_contenidos, funcionalidad,
-            demostracion, trabajo_equipo, documentacion, respuestas_jurado,
-            observaciones
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    // Validar datos principales
+    $equipo_id = (int)$_POST['equipo_id'];
+    $evaluador_id = (int)$_POST['evaluador_id'];
+    $instancia_id = (int)$_POST['instancia_id'];
+    $observaciones = $_POST['observaciones'] ?? '';
+    $criterios = $_POST['criterio'] ?? [];
+
+    if (empty($criterios)) {
+        throw new Exception("No se recibieron criterios evaluados.");
+    }
+
+    // Iniciar transacción
+    $pdo->beginTransaction();
+
+    // 1. Insertar evaluación principal
+    $stmt_eval = $pdo->prepare("
+        INSERT INTO evaluaciones (id_instancia, id_equipo, id_evaluador, observaciones, estado)
+        VALUES (?, ?, ?, ?, 'enviada')
+    ");
+    $stmt_eval->execute([$instancia_id, $equipo_id, $evaluador_id, $observaciones]);
+    
+    $id_evaluacion = $pdo->lastInsertId();
+
+    // 2. Insertar detalles por cada criterio
+    $stmt_detalle = $pdo->prepare("
+        INSERT INTO detalles_evaluacion (id_evaluacion, id_criterio, puntaje, comentario)
+        VALUES (?, ?, ?, ?)
     ");
 
-    $stmt->execute([
-        $_POST['equipo_id'],
-        $_POST['evaluador_id'],
-        $_POST['problema_valor'],
-        $_POST['integracion_contenidos'],
-        $_POST['funcionalidad'],
-        $_POST['demostracion'],
-        $_POST['trabajo_equipo'],
-        $_POST['documentacion'],
-        $_POST['respuestas_jurado'],
-        $_POST['observaciones'] ?? ''
-    ]);
+    foreach ($criterios as $id_criterio => $datos) {
+        $puntaje = (int)$datos['puntaje'];
+        $comentario = $datos['comentario'] ?? '';
+        
+        if ($puntaje > 0) { // Solo guardar si fue evaluado
+            $stmt_detalle->execute([
+                $id_evaluacion,
+                $id_criterio,
+                $puntaje,
+                $comentario
+            ]);
+        }
+    }
 
-    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Éxito</title></head><body>';
+    // Confirmar transacción
+    $pdo->commit();
+
+    // Respuesta exitosa
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Éxito</title>';
+    echo '<link rel="stylesheet" href="estilo.css"></head><body>';
     echo '<div class="container"><h2>✅ Evaluación guardada correctamente</h2>';
-    echo '<p><a href="index.php">Evaluar otro equipo</a></p></div>';
-    echo '<style>.container{max-width:600px;margin:50px auto;text-align:center;}</style>';
-    echo '</body></html>';
+    echo '<p><strong>ID de evaluación:</strong> ' . $id_evaluacion . '</p>';
+    echo '<p><a href="index.php" class="btn-link">Evaluar otro equipo</a></p>';
+    echo '<p><a href="ver_evaluacion.php?id=' . $id_evaluacion . '" class="btn-link">Ver esta evaluación</a></p>';
+    echo '</div></body></html>';
 
 } catch (Exception $e) {
+    // Revertir en caso de error
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    
     http_response_code(500);
     echo "Error al guardar: " . htmlspecialchars($e->getMessage());
 }
