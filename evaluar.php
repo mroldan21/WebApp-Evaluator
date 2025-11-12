@@ -37,7 +37,8 @@ $stmt_criterios = $pdo->prepare("
         ce.descripcion,
         ce.puntaje_minimo,
         ce.puntaje_maximo,
-        ic.peso_porcentual
+        ic.puntaje_maximo_criterio
+
     FROM instancia_criterios ic
     INNER JOIN criterios_evaluacion ce ON ic.id_criterio = ce.id_criterio
     WHERE ic.id_instancia = ?
@@ -51,7 +52,7 @@ if (empty($criterios)) {
 }
 
 // Calcular peso total para normalizar
-$peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
+$peso_total = array_sum(array_column($criterios, 'puntaje_maximo_criterio'));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -139,7 +140,7 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
                     <h4>
                         <?= ($index + 1) ?>. <?= htmlspecialchars($criterio['nombre']) ?>
                         <span style="color: #666; font-size: 0.9em;">
-                            (Peso: <?= $criterio['peso_porcentual'] ?>%)
+                            (Peso: <?= $criterio['puntaje_maximo_criterio'] ?>%)
                         </span>
                     </h4>
                     <?php if ($criterio['descripcion']): ?>
@@ -150,7 +151,7 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
                          data-criterio-id="<?= $criterio['id_criterio'] ?>"
                          data-min="<?= $criterio['puntaje_minimo'] ?>"
                          data-max="<?= $criterio['puntaje_maximo'] ?>"
-                         data-peso="<?= $criterio['peso_porcentual'] ?>">
+                         data-peso="<?= $criterio['puntaje_maximo_criterio'] ?>">
                         <!-- Las estrellas se generan dinámicamente con JavaScript -->
                     </div>
                     
