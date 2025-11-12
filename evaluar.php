@@ -300,38 +300,39 @@ $peso_total = array_sum(array_column($criterios, 'peso_porcentual'));
       });
 
       function actualizarTotales() {
-        document.getElementById('total-evaluados').textContent = criteriosEvaluados;
-        
-        let puntajeTotal = 0;
-        let puntajeMaximoTotal = 0;
+          document.getElementById('total-evaluados').textContent = criteriosEvaluados;
+          
+          // Calcular peso total (suma de puntajes máximos)
+          let pesoTotal = 0;
+          for (let criterioId in criteriosData) {
+              pesoTotal += criteriosData[criterioId].puntaje_max_criterio;
+          }
+          
+          let puntajeTotal = 0;
+          
+          for (let criterioId in criteriosData) {
+              const criterio = criteriosData[criterioId];
+              
+              if (criterio.puntaje > 0) {
+                  // Porcentaje obtenido en el criterio (0-100%)
+                  const porcentaje = ((criterio.puntaje - criterio.min) / (criterio.max - criterio.min)) * 100;
+                  
+                  // Puntaje obtenido = porcentaje × puntaje máximo del criterio
+                  const puntajeObtenido = (porcentaje / 100) * criterio.puntaje_max_criterio;
+                  
+                  puntajeTotal += puntajeObtenido;
+              }
+          }
+          
+          // Normalizar a 0-100
+          const puntajeFinal = pesoTotal > 0 ? (puntajeTotal / pesoTotal) * 100 : 0;
+          const puntajeSobre10 = puntajeFinal / 10;
+          
+          document.getElementById('puntaje-ponderado').textContent = puntajeFinal.toFixed(2);
+          document.getElementById('promedio-simple').textContent = puntajeSobre10.toFixed(2) + ' / 10';
+          document.getElementById('guardar').disabled = (criteriosEvaluados < totalCriterios);
+      }
 
-        for (let criterioId in criteriosData) {
-            const criterio = criteriosData[criterioId];
-            
-            // Calcular porcentaje obtenido (0-100%)
-            const porcentaje = criterio.puntaje > 0 ? 
-                ((criterio.puntaje - criterio.min) / (criterio.max - criterio.min)) * 100 : 0;
-            
-            // Aplicar el peso (puntaje máximo del criterio)
-            const puntajeObtenido = (porcentaje / 100) * criterio.peso;
-            
-            puntajeTotal += puntajeObtenido;
-            puntajeMaximoTotal += criterio.peso;
-        }
-
-        // Normalizar a escala 0-100
-        const puntajeFinal = puntajeMaximoTotal > 0 ? (puntajeTotal / puntajeMaximoTotal) * 100 : 0;
-        
-        // También en escala 0-10
-        const puntajeSobre10 = puntajeFinal / 10;
-
-        // Actualizar interfaz
-        document.getElementById('puntaje-ponderado').textContent = puntajeFinal.toFixed(2);
-        document.getElementById('promedio-simple').textContent = puntajeSobre10.toFixed(2) + ' / 10';
-
-        // Habilitar/deshabilitar botón
-        document.getElementById('guardar').disabled = (criteriosEvaluados < totalCriterios);
-    }
 
   </script>
 

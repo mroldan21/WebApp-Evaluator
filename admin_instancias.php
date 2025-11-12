@@ -199,12 +199,16 @@ $instancias = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </p>
                                 <div style="margin-left: 25px;">
                                     <label style="font-size: 0.9em;">
-                                        Peso porcentual (%):
-                                        <input type="number" name="peso[<?= $crit['id_criterio'] ?>]" 
-                                               value="100" min="0" max="100" step="0.01" 
-                                               style="width: 80px;">
+                                        Puntaje máximo del criterio:
+                                        <input type="number" name="puntaje_max[<?= $crit['id_criterio'] ?>]" 
+                                            value="100" min="1" max="1000" step="0.01" 
+                                            style="width: 100px;">
                                     </label>
+                                    <small style="display: block; color: #666; margin-top: 3px;">
+                                        Ej: Si este criterio vale 40 puntos y otro 10, el peso se calculará automáticamente (40/50 = 80%)
+                                    </small>
                                 </div>
+
                             </div>
                         <?php endforeach; ?>
                     </div>

@@ -37,7 +37,7 @@ $stmt = $pdo->prepare("
         ce.descripcion AS criterio_descripcion,
         ce.puntaje_minimo,
         ce.puntaje_maximo,
-        ic.peso_porcentual
+        ic.puntaje_maximo_criterio
     FROM detalles_evaluacion de
     INNER JOIN criterios_evaluacion ce ON de.id_criterio = ce.id_criterio
     INNER JOIN instancia_criterios ic ON de.id_criterio = ic.id_criterio
@@ -45,31 +45,24 @@ $stmt = $pdo->prepare("
     WHERE de.id_evaluacion = ? AND ic.id_instancia = e.id_instancia
     ORDER BY de.fecha_registro
 ");
+
 $stmt->execute([$id_evaluacion]);
 $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Calcular puntaje ponderado CORRECTAMENTE
 $puntaje_obtenido_total = 0;
 $peso_total = 0;
 
 foreach ($detalles as $det) {
-    // Porcentaje obtenido en este criterio (0-100%)
     $porcentaje = (($det['puntaje'] - $det['puntaje_minimo']) / ($det['puntaje_maximo'] - $det['puntaje_minimo'])) * 100;
-    
-    // Puntaje obtenido = porcentaje * peso del criterio
-    $puntaje_obtenido = ($porcentaje / 100) * $det['peso_porcentual'];
+    $puntaje_obtenido = ($porcentaje / 100) * $det['puntaje_maximo_criterio'];
     
     $puntaje_obtenido_total += $puntaje_obtenido;
-    $peso_total += $det['peso_porcentual'];
+    $peso_total += $det['puntaje_maximo_criterio'];
 }
 
-// Puntaje final normalizado a 0-100
 $puntaje_final = $peso_total > 0 ? ($puntaje_obtenido_total / $peso_total) * 100 : 0;
-
-// También sobre 10
 $puntaje_sobre_10 = $puntaje_final / 10;
 
-$total_criterios = count($detalles);
 
 
 ?>
