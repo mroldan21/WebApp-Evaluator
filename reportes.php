@@ -11,16 +11,21 @@ $stmt = $pdo->query("
         e.fecha_eval,
         e.estado,
         COUNT(de.id_detalle) AS criterios_evaluados,
-        AVG(de.puntaje) AS promedio
+        SUM(((de.puntaje - ce.puntaje_minimo) / (ce.puntaje_maximo - ce.puntaje_minimo)) * ic.peso_porcentual) AS puntaje_obtenido,
+        SUM(ic.peso_porcentual) AS puntaje_maximo
     FROM evaluaciones e
     INNER JOIN instancias_evaluacion ie ON e.id_instancia = ie.id_instancia
     INNER JOIN equipos eq ON e.id_equipo = eq.id_equipo
     INNER JOIN evaluadores ev ON e.id_evaluador = ev.id_evaluador
     LEFT JOIN detalles_evaluacion de ON e.id_evaluacion = de.id_evaluacion
+    LEFT JOIN criterios_evaluacion ce ON de.id_criterio = ce.id_criterio
+    LEFT JOIN instancia_criterios ic ON ce.id_criterio = ic.id_criterio AND ic.id_instancia = e.id_instancia
     GROUP BY e.id_evaluacion
     ORDER BY e.fecha_eval DESC
 ");
+
 $evaluaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Obtener estadísticas por instancia
 $stmt = $pdo->query("
@@ -150,11 +155,14 @@ $estadisticas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <tbody>
                     <?php foreach ($evaluaciones as $eval): ?>
                         <?php
-                            $promedio = $eval['promedio'] ? round($eval['promedio'], 2) : 0;
+                            $promedio_porcentaje = $eval['promedio_porcentaje'] ?? 0;
+                            $promedio_maximo = $eval['promedio_maximo'] ?? 4;
+                            $promedio = ($promedio_porcentaje / 100) * $promedio_maximo;
+                            
                             $clase_promedio = 'promedio-bajo';
-                            if ($promedio >= 3.5) $clase_promedio = 'promedio-excelente';
-                            elseif ($promedio >= 3) $clase_promedio = 'promedio-alto';
-                            elseif ($promedio >= 2) $clase_promedio = 'promedio-medio';
+                            if ($promedio_porcentaje >= 87.5) $clase_promedio = 'promedio-excelente'; // 87.5% = 3.5/4
+                            elseif ($promedio_porcentaje >= 75) $clase_promedio = 'promedio-alto';
+                            elseif ($promedio_porcentaje >= 50) $clase_promedio = 'promedio-medio';
                         ?>
                         <tr>
                             <td><?= $eval['id_evaluacion'] ?></td>
@@ -165,15 +173,23 @@ $estadisticas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <td><?= $eval['criterios_evaluados'] ?></td>
                             <td>
                                 <span class="promedio-badge <?= $clase_promedio ?>">
-                                    <?= $promedio ?>
+                                    <?= round($promedio, 2) ?> / <?= round($promedio_maximo, 1) ?>
                                 </span>
                             </td>
                             <td><?= strtoupper($eval['estado']) ?></td>
-                            <td>
-                                <a href="ver_evaluacion.php?id=<?= $eval['id_evaluacion'] ?>">Ver detalles</a>
+                            <td style="white-space: nowrap;">
+                                <a href="ver_evaluacion.php?id=<?= $eval['id_evaluacion'] ?>" 
+                                style="padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px; font-size: 0.9em;">
+                                    👁️ Ver
+                                </a>
+                                <a href="generar_devolucion.php?id=<?= $eval['id_evaluacion'] ?>" 
+                                style="padding: 5px 10px; background: #2196f3; color: white; text-decoration: none; border-radius: 3px; font-size: 0.9em; margin-left: 5px;">
+                                    🤖 IA
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+
                 </tbody>
             </table>
         <?php endif; ?>

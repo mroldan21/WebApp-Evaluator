@@ -29,29 +29,48 @@ if (!$evaluacion) {
     die("Evaluación no encontrada.");
 }
 
-// Obtener detalles de los criterios evaluados
+// Obtener criterios con sus pesos desde la instancia
 $stmt = $pdo->prepare("
     SELECT 
         de.*,
         ce.nombre AS criterio_nombre,
         ce.descripcion AS criterio_descripcion,
         ce.puntaje_minimo,
-        ce.puntaje_maximo
+        ce.puntaje_maximo,
+        ic.peso_porcentual
     FROM detalles_evaluacion de
     INNER JOIN criterios_evaluacion ce ON de.id_criterio = ce.id_criterio
-    WHERE de.id_evaluacion = ?
+    INNER JOIN instancia_criterios ic ON de.id_criterio = ic.id_criterio
+    INNER JOIN evaluaciones e ON de.id_evaluacion = e.id_evaluacion
+    WHERE de.id_evaluacion = ? AND ic.id_instancia = e.id_instancia
     ORDER BY de.fecha_registro
 ");
 $stmt->execute([$id_evaluacion]);
 $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Calcular promedio
-$total_puntaje = 0;
-$total_criterios = count($detalles);
+// Calcular puntaje ponderado
+$puntaje_total = 0;
+$puntaje_maximo_total = 0;
+
 foreach ($detalles as $det) {
-    $total_puntaje += $det['puntaje'];
+    // Porcentaje obtenido (0-100%)
+    $porcentaje = (($det['puntaje'] - $det['puntaje_minimo']) / ($det['puntaje_maximo'] - $det['puntaje_minimo'])) * 100;
+    
+    // Aplicar peso del criterio
+    $puntaje_obtenido = ($porcentaje / 100) * $det['peso_porcentual'];
+    
+    $puntaje_total += $puntaje_obtenido;
+    $puntaje_maximo_total += $det['peso_porcentual'];
 }
-$promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) : 0;
+
+// Normalizar a 0-100
+$puntaje_final = $puntaje_maximo_total > 0 ? ($puntaje_total / $puntaje_maximo_total) * 100 : 0;
+
+// También sobre 10
+$puntaje_sobre_10 = $puntaje_final / 10;
+
+$total_criterios = count($detalles);
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -134,9 +153,12 @@ $promedio = $total_criterios > 0 ? round($total_puntaje / $total_criterios, 2) :
         </div>
 
         <div class="resumen-box">
-            <h2>Promedio: <?= $promedio ?> / 4.0</h2>
+            <h2>Puntaje: <?= round($puntaje_final, 2) ?> / 100</h2>
+            <p>Equivalente: <?= round($puntaje_sobre_10, 2) ?> / 10</p>
             <p>Total de criterios evaluados: <?= $total_criterios ?></p>
         </div>
+
+
 
         <h2>Detalles por Criterio</h2>
         
