@@ -48,28 +48,29 @@ $stmt = $pdo->prepare("
 $stmt->execute([$id_evaluacion]);
 $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Calcular puntaje ponderado
-$puntaje_total = 0;
-$puntaje_maximo_total = 0;
+// Calcular puntaje ponderado CORRECTAMENTE
+$puntaje_obtenido_total = 0;
+$peso_total = 0;
 
 foreach ($detalles as $det) {
-    // Porcentaje obtenido (0-100%)
+    // Porcentaje obtenido en este criterio (0-100%)
     $porcentaje = (($det['puntaje'] - $det['puntaje_minimo']) / ($det['puntaje_maximo'] - $det['puntaje_minimo'])) * 100;
     
-    // Aplicar peso del criterio
+    // Puntaje obtenido = porcentaje * peso del criterio
     $puntaje_obtenido = ($porcentaje / 100) * $det['peso_porcentual'];
     
-    $puntaje_total += $puntaje_obtenido;
-    $puntaje_maximo_total += $det['peso_porcentual'];
+    $puntaje_obtenido_total += $puntaje_obtenido;
+    $peso_total += $det['peso_porcentual'];
 }
 
-// Normalizar a 0-100
-$puntaje_final = $puntaje_maximo_total > 0 ? ($puntaje_total / $puntaje_maximo_total) * 100 : 0;
+// Puntaje final normalizado a 0-100
+$puntaje_final = $peso_total > 0 ? ($puntaje_obtenido_total / $peso_total) * 100 : 0;
 
 // También sobre 10
 $puntaje_sobre_10 = $puntaje_final / 10;
 
 $total_criterios = count($detalles);
+
 
 ?>
 <!DOCTYPE html>
@@ -153,10 +154,12 @@ $total_criterios = count($detalles);
         </div>
 
         <div class="resumen-box">
-            <h2>Puntaje: <?= round($puntaje_final, 2) ?> / 100</h2>
+            <h2>Puntaje Ponderado: <?= round($puntaje_final, 2) ?> / 100</h2>
             <p>Equivalente: <?= round($puntaje_sobre_10, 2) ?> / 10</p>
             <p>Total de criterios evaluados: <?= $total_criterios ?></p>
+            <p style="font-size: 0.9em; color: #666;">Peso total: <?= round($peso_total, 0) ?> puntos</p>
         </div>
+
 
 
 
@@ -240,71 +243,96 @@ $total_criterios = count($detalles);
                     equipo: <?= json_encode($evaluacion['equipo_nombre']) ?>,
                     evaluador: <?= json_encode($evaluacion['evaluador_nombre']) ?>,
                     fecha: <?= json_encode(date('d/m/Y H:i', strtotime($evaluacion['fecha_eval']))) ?>,
-                    promedio: <?= $promedio ?>,
+                    puntaje: <?= round($puntaje_final, 2) ?>,
+                    puntaje_sobre_10: <?= round($puntaje_sobre_10, 2) ?>,
                     observaciones: <?= json_encode($evaluacion['observaciones'] ?? '') ?>,
                     criterios: [
-                        <?php foreach ($detalles as $det): ?>
+                        <?php foreach ($detalles as $index => $det): ?>
                         {
                             nombre: <?= json_encode($det['criterio_nombre']) ?>,
                             descripcion: <?= json_encode($det['criterio_descripcion']) ?>,
                             puntaje: <?= $det['puntaje'] ?>,
                             maximo: <?= $det['puntaje_maximo'] ?>,
                             porcentaje: <?= round((($det['puntaje'] - $det['puntaje_minimo']) / ($det['puntaje_maximo'] - $det['puntaje_minimo'])) * 100, 1) ?>,
+                            peso: <?= $det['peso_porcentual'] ?>,
                             comentario: <?= json_encode($det['comentario'] ?? '') ?>
-                        },
+                        }<?= ($index < count($detalles) - 1) ? ',' : '' ?>
                         <?php endforeach; ?>
                     ]
                 };
 
+
+
                 function generarPrompt() {
+                    // Calcular puntaje ponderado correctamente
+                    let puntajeObtenidoTotal = 0;
+                    let pesoTotal = 0;
+                    
+                    evaluacionData.criterios.forEach(criterio => {
+                        const porcentaje = criterio.porcentaje;
+                        const peso = criterio.peso || 100; // Asumimos 100 si no está definido
+                        const puntajeObtenido = (porcentaje / 100) * peso;
+                        
+                        puntajeObtenidoTotal += puntajeObtenido;
+                        pesoTotal += peso;
+                    });
+                    
+                    const puntajeFinal = pesoTotal > 0 ? (puntajeObtenidoTotal / pesoTotal) * 100 : 0;
+                    const puntajeSobre10 = puntajeFinal / 10;
+                    
                     let prompt = `Actúa como un evaluador académico experimentado y genera una devolución constructiva, detallada y motivadora para el siguiente proyecto evaluado.
 
-    ## CONTEXTO DE LA EVALUACIÓN
+                ## CONTEXTO DE LA EVALUACIÓN
 
-    **Instancia:** ${evaluacionData.instancia}
-    **Equipo:** ${evaluacionData.equipo}
-    **Evaluador:** ${evaluacionData.evaluador}
-    **Fecha:** ${evaluacionData.fecha}
-    **Promedio General:** ${evaluacionData.promedio.toFixed(2)} / 4.0
+                **Instancia:** ${evaluacionData.instancia}
+                **Equipo:** ${evaluacionData.equipo}
+                **Evaluador:** ${evaluacionData.evaluador}
+                **Fecha:** ${evaluacionData.fecha}
+                **Puntaje Ponderado:** ${puntajeFinal.toFixed(2)} / 100 (${puntajeSobre10.toFixed(2)} / 10)
 
-    ## CRITERIOS EVALUADOS
+                ## CRITERIOS EVALUADOS
 
-    `;
+                `;
 
                     evaluacionData.criterios.forEach((criterio, index) => {
                         const nivel = criterio.porcentaje >= 80 ? "Excelente" : 
                                     criterio.porcentaje >= 60 ? "Bueno" : 
                                     criterio.porcentaje >= 40 ? "Aceptable" : "Necesita mejora";
                         
+                        const peso = criterio.peso || 100;
+                        const puntajeObtenido = ((criterio.porcentaje / 100) * peso).toFixed(1);
+                        
                         prompt += `### ${index + 1}. ${criterio.nombre}
-    **Puntaje:** ${criterio.puntaje}/${criterio.maximo} (${criterio.porcentaje}% - ${nivel})
-    **Descripción:** ${criterio.descripcion || 'Sin descripción'}
-    ${criterio.comentario ? `**Comentario del evaluador:** ${criterio.comentario}` : ''}
+                **Puntaje:** ${criterio.puntaje}/${criterio.maximo} (${criterio.porcentaje}% - ${nivel})
+                **Peso del criterio:** ${peso} puntos
+                **Contribución al puntaje total:** ${puntajeObtenido} puntos
+                **Descripción:** ${criterio.descripcion || 'Sin descripción'}
+                ${criterio.comentario ? `**Comentario del evaluador:** ${criterio.comentario}` : ''}
 
-    `;
+                `;
                     });
 
                     if (evaluacionData.observaciones) {
                         prompt += `## OBSERVACIONES GENERALES DEL EVALUADOR
 
-    ${evaluacionData.observaciones}
+                ${evaluacionData.observaciones}
 
-    `;
+                `;
                     }
 
                     prompt += `## INSTRUCCIONES PARA LA DEVOLUCIÓN
 
-    Por favor, genera una devolución que incluya:
+                Por favor, genera una devolución que incluya:
 
-    1. **Resumen ejecutivo**: Breve análisis del desempeño general del equipo
-    2. **Fortalezas identificadas**: Aspectos destacados según los criterios evaluados
-    3. **Áreas de mejora**: Puntos específicos que requieren atención, con sugerencias concretas
-    4. **Recomendaciones prácticas**: Pasos accionables para el equipo
-    5. **Mensaje motivacional**: Cierre positivo y alentador
+                1. **Resumen ejecutivo**: Breve análisis del desempeño general del equipo (mencionar el puntaje ponderado de ${puntajeFinal.toFixed(1)}/100)
+                2. **Fortalezas identificadas**: Aspectos destacados según los criterios evaluados, priorizando los de mayor peso
+                3. **Áreas de mejora**: Puntos específicos que requieren atención, con sugerencias concretas y prácticas
+                4. **Recomendaciones priorizadas**: Enfocarse en mejorar los criterios de mayor peso para maximizar el impacto
+                5. **Mensaje motivacional**: Cierre positivo y alentador
 
-    **Tono:** Constructivo, profesional y motivador
-    **Extensión:** 400-600 palabras
-    **Formato:** Estructura clara con títulos y bullets points cuando sea apropiado`;
+                **Tono:** Constructivo, profesional y motivador
+                **Extensión:** 400-600 palabras
+                **Formato:** Estructura clara con títulos y bullets points cuando sea apropiado`;
 
                     document.getElementById('prompt-text').textContent = prompt;
                     document.getElementById('prompt-container').style.display = 'block';
@@ -314,6 +342,8 @@ $total_criterios = count($detalles);
                     // Scroll suave hasta el prompt
                     document.getElementById('prompt-container').scrollIntoView({ behavior: 'smooth' });
                 }
+
+
 
                 function copiarPrompt() {
                     const promptText = document.getElementById('prompt-text').textContent;

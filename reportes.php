@@ -1,7 +1,7 @@
 <?php
 require 'config.php';
 
-// Obtener todas las evaluaciones con información resumida
+// Obtener todas las evaluaciones con cálculo ponderado correcto
 $stmt = $pdo->query("
     SELECT 
         e.id_evaluacion,
@@ -23,9 +23,7 @@ $stmt = $pdo->query("
     GROUP BY e.id_evaluacion
     ORDER BY e.fecha_eval DESC
 ");
-
 $evaluaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 
 // Obtener estadísticas por instancia
 $stmt = $pdo->query("
@@ -35,10 +33,22 @@ $stmt = $pdo->query("
         COUNT(DISTINCT e.id_evaluacion) AS total_evaluaciones,
         COUNT(DISTINCT e.id_equipo) AS equipos_evaluados,
         COUNT(DISTINCT e.id_evaluador) AS evaluadores_participantes,
-        AVG(de.puntaje) AS promedio_general
+        AVG(
+            (SUM_PUNTAJES.puntaje_obtenido / SUM_PUNTAJES.puntaje_maximo) * 100
+        ) AS promedio_general
     FROM instancias_evaluacion ie
     LEFT JOIN evaluaciones e ON ie.id_instancia = e.id_instancia
-    LEFT JOIN detalles_evaluacion de ON e.id_evaluacion = de.id_evaluacion
+    LEFT JOIN (
+        SELECT 
+            de.id_evaluacion,
+            SUM(((de.puntaje - ce.puntaje_minimo) / (ce.puntaje_maximo - ce.puntaje_minimo)) * ic.peso_porcentual) AS puntaje_obtenido,
+            SUM(ic.peso_porcentual) AS puntaje_maximo
+        FROM detalles_evaluacion de
+        INNER JOIN criterios_evaluacion ce ON de.id_criterio = ce.id_criterio
+        INNER JOIN evaluaciones ev ON de.id_evaluacion = ev.id_evaluacion
+        INNER JOIN instancia_criterios ic ON ce.id_criterio = ic.id_criterio AND ic.id_instancia = ev.id_instancia
+        GROUP BY de.id_evaluacion
+    ) AS SUM_PUNTAJES ON e.id_evaluacion = SUM_PUNTAJES.id_evaluacion
     WHERE ie.activa = TRUE
     GROUP BY ie.id_instancia
     ORDER BY ie.fecha_inicio DESC
@@ -126,7 +136,7 @@ $estadisticas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <?= $stat['evaluadores_participantes'] ?> evaluadores
                         </p>
                         <?php if ($stat['promedio_general']): ?>
-                            <p><strong>Promedio:</strong> <?= round($stat['promedio_general'], 2) ?> / 4.0</p>
+                            <p><strong>Promedio:</strong> <?= round($stat['promedio_general'], 2) ?> / 100</p>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
@@ -147,22 +157,24 @@ $estadisticas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <th>Evaluador</th>
                         <th>Fecha</th>
                         <th>Criterios</th>
-                        <th>Promedio</th>
+                        <th>Puntaje</th>
                         <th>Estado</th>
-                        <th>Acción</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($evaluaciones as $eval): ?>
                         <?php
-                            $promedio_porcentaje = $eval['promedio_porcentaje'] ?? 0;
-                            $promedio_maximo = $eval['promedio_maximo'] ?? 4;
-                            $promedio = ($promedio_porcentaje / 100) * $promedio_maximo;
+                            // Calcular puntaje final ponderado
+                            $puntaje_obtenido = $eval['puntaje_obtenido'] ?? 0;
+                            $puntaje_maximo = $eval['puntaje_maximo'] ?? 100;
+                            $puntaje_final = $puntaje_maximo > 0 ? ($puntaje_obtenido / $puntaje_maximo) * 100 : 0;
                             
+                            // Determinar clase de color
                             $clase_promedio = 'promedio-bajo';
-                            if ($promedio_porcentaje >= 87.5) $clase_promedio = 'promedio-excelente'; // 87.5% = 3.5/4
-                            elseif ($promedio_porcentaje >= 75) $clase_promedio = 'promedio-alto';
-                            elseif ($promedio_porcentaje >= 50) $clase_promedio = 'promedio-medio';
+                            if ($puntaje_final >= 87.5) $clase_promedio = 'promedio-excelente';
+                            elseif ($puntaje_final >= 75) $clase_promedio = 'promedio-alto';
+                            elseif ($puntaje_final >= 50) $clase_promedio = 'promedio-medio';
                         ?>
                         <tr>
                             <td><?= $eval['id_evaluacion'] ?></td>
@@ -173,23 +185,25 @@ $estadisticas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <td><?= $eval['criterios_evaluados'] ?></td>
                             <td>
                                 <span class="promedio-badge <?= $clase_promedio ?>">
-                                    <?= round($promedio, 2) ?> / <?= round($promedio_maximo, 1) ?>
+                                    <?= round($puntaje_final, 1) ?>
                                 </span>
+                                <small style="display: block; color: #666; margin-top: 3px;">
+                                    / 100 (<?= round($puntaje_final / 10, 1) ?>/10)
+                                </small>
                             </td>
                             <td><?= strtoupper($eval['estado']) ?></td>
                             <td style="white-space: nowrap;">
                                 <a href="ver_evaluacion.php?id=<?= $eval['id_evaluacion'] ?>" 
-                                style="padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px; font-size: 0.9em;">
+                                   style="padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 3px; font-size: 0.9em;">
                                     👁️ Ver
                                 </a>
-                                <a href="generar_devolucion.php?id=<?= $eval['id_evaluacion'] ?>" 
-                                style="padding: 5px 10px; background: #2196f3; color: white; text-decoration: none; border-radius: 3px; font-size: 0.9em; margin-left: 5px;">
+                                <a href="ver_evaluacion.php?id=<?= $eval['id_evaluacion'] ?>#generar-ia" 
+                                   style="padding: 5px 10px; background: #2196f3; color: white; text-decoration: none; border-radius: 3px; font-size: 0.9em; margin-left: 5px;">
                                     🤖 IA
                                 </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-
                 </tbody>
             </table>
         <?php endif; ?>
